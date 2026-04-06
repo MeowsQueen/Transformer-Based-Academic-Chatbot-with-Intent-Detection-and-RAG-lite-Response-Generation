@@ -38,6 +38,51 @@ The system consists of two main components:
 * Retrieves the most semantically similar question using **cosine similarity**
 * Provides domain-specific answers
 
+## Repository Structure
+
+```text
+Transformer-Based-Academic-Chatbot-with-Intent-Detection/
+│
+├── data/
+│   ├── raw/
+│   │   └── clinc150_full.json
+│   │
+│   └── processed/
+│       ├── clinc_subset_train.csv
+│       ├── clinc_subset_val.csv
+│       ├── clinc_subset_test.csv
+│       └── knowledge_base.csv
+│
+├── src/
+│   ├── prepare_clinc.py
+│   ├── preprocess.py
+│   ├── train_intent_classifier.py
+│   ├── retrieve.py
+│   ├── chatbot.py
+│   └── app.py
+│
+├── results/
+│   ├── metrics.txt
+│   ├── confusion_matrix.png
+│   └── sample_outputs.txt
+│
+├── notebooks/
+│   └── experiments.ipynb
+│
+├── requirements.txt
+├── README.md
+└── .gitignore
+```
+## Folder Descriptions
+
+* **data/raw/**: original downloaded datasets  
+* **data/processed/**: cleaned and prepared datasets used by the models  
+* **src/**: source code for preprocessing, training, retrieval, and application logic  
+* **results/**: saved evaluation outputs and visualizations  
+* **notebooks/**: optional experiments and exploratory analysis  
+* **requirements.txt**: Python dependencies  
+* **README.md**: project documentation
+  
 ---
 
 ## System Pipeline
