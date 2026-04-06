@@ -1,19 +1,20 @@
-# Transformer-Based Academic Chatbot with Intent Detection
+# Transformer-Based Academic Chatbot with Intent Detection and RAG-lite Response Generation
 
 ## Overview
 
-This project presents a hybrid Natural Language Processing (NLP) system that combines **intent classification** and **retrieval-based question answering** to build an intelligent academic chatbot.
+This project presents a hybrid Natural Language Processing (NLP) system that combines **intent classification**, **retrieval-based question answering**, and **lightweight language generation** to build an intelligent academic chatbot.
 
 The system is designed to:
 
 * understand user queries using a trained intent classification model
-* retrieve relevant answers from a **domain-specific academic knowledge base**
+* retrieve relevant information from a **domain-specific academic knowledge base**
+* generate more natural and context-aware responses using a lightweight LLM-based generation step
 * handle out-of-scope queries robustly
 
 The chatbot focuses on **student-oriented academic queries**, including:
 
 * course-related questions (schedule, grading, instructor)
-* conceptual questions (e.g., NLP, transformers)
+* conceptual questions (e.g., NLP, transformers, embeddings)
 * general academic assistance
 
 This project was developed as part of the **Introduction to Large Language Models (LLM)** course.
@@ -22,7 +23,7 @@ This project was developed as part of the **Introduction to Large Language Model
 
 ## Project Structure
 
-The system consists of two main components:
+The system consists of three main components:
 
 ### 1. Intent Classification Module
 
@@ -31,12 +32,21 @@ The system consists of two main components:
 * Includes an **Out-of-Scope (OOS)** class to detect irrelevant queries
 * Acts as a **general-purpose intent understanding layer**
 
-### 2. Retrieval-Based Chatbot Module
+### 2. Retrieval Module
 
 * Uses a **custom-built academic knowledge base**
 * Applies **transformer-based sentence embeddings**
-* Retrieves the most semantically similar question using **cosine similarity**
-* Provides domain-specific answers
+* Retrieves the most semantically relevant question-answer pairs using **cosine similarity**
+* Supplies contextual information for final response construction
+
+### 3. RAG-lite Generation Module
+
+* Takes the retrieved context and the user query as input
+* Uses a lightweight language model or generation layer to produce a more natural answer
+* Improves fluency and flexibility compared to returning a fixed stored answer
+* Functions as a simplified form of **Retrieval-Augmented Generation (RAG)**
+
+---
 
 ## Repository Structure
 
@@ -58,6 +68,7 @@ Transformer-Based-Academic-Chatbot-with-Intent-Detection/
 │   ├── preprocess.py
 │   ├── train_intent_classifier.py
 │   ├── retrieve.py
+│   ├── generate.py
 │   ├── chatbot.py
 │   └── app.py
 │
@@ -98,94 +109,111 @@ If In-Scope:
     → Map intent to domain/topic
     → Generate embedding (Sentence Transformers)
     → Compute similarity
-    → Retrieve best matching answer
+    → Retrieve top relevant context
+    → Send retrieved context + user query to generation module
+    → Return final generated response
 Else:
     → Return "Out of Scope" response
 ```
-
 ## Dataset
 
 ### 1. Intent Classification Dataset
 
-* **Source:** CLINC150
-* A subset of **8 selected intents + 1 OOS class**
-* Used to train a general intent classification model
+* **Source:** CLINC150  
+* A subset of **8 selected intents + 1 OOS class**  
+* Used to train a general intent classification model  
 
 #### Data Split
 
-* Train: ~900 samples
-* Validation: ~260 samples
-* Test: ~480 samples
+* Train: ~900 samples  
+* Validation: ~260 samples  
+* Test: ~480 samples  
 
 This dataset enables the system to handle **diverse natural language queries** and detect irrelevant inputs.
 
 ### 2. Knowledge Base (Retrieval Dataset)
 
-* Custom-built dataset (~100 Q&A pairs)
-* Designed specifically for this project
+* Custom-built dataset (~100 Q&A pairs)  
+* Designed specifically for this project  
 
 #### Covered Domains
 
-* Course and syllabus information
-* Exams and grading policies
-* Instructor and schedule queries
-* NLP and AI concepts (e.g., transformers, embeddings)
+* Course and syllabus information  
+* Exams and grading policies  
+* Instructor and schedule queries  
+* NLP and AI concepts (e.g., transformers, embeddings, BERT, GPT)  
 
 The dataset includes:
 
-* paraphrased questions
-* different linguistic variations
-* mixed query styles (formal + informal)
+* paraphrased questions  
+* different linguistic variations  
+* mixed query styles (formal + informal)  
 
 This ensures more realistic chatbot behavior.
 
 ## Technologies Used
 
-* Python
-* Pandas
-* Scikit-learn
-* Sentence-Transformers
-* PyTorch
-* Streamlit
+* Python  
+* Pandas  
+* Scikit-learn  
+* Sentence-Transformers  
+* PyTorch  
+* HuggingFace Transformers  
+* Streamlit  
 
 ## Methodology
 
 ### Preprocessing
 
-* Lowercasing
-* Punctuation removal
-* Text normalization
+* Lowercasing  
+* Punctuation removal  
+* Text normalization  
 
 ### Intent Classification
 
-* Feature extraction using **TF-IDF**
-* **Model:** Logistic Regression
-* Trained using gradient-based optimization
+* Feature extraction using **TF-IDF**  
+* **Model:** Logistic Regression  
+* Trained using gradient-based optimization  
 
 This module learns to map user queries into intent categories.
 
 ### Retrieval System
 
-* Sentence embeddings generated using pretrained transformer models
-* Similarity computed using **cosine similarity**
-* Best-matching question-answer pair is returned
+* Sentence embeddings generated using pretrained transformer models  
+* Similarity computed using **cosine similarity**  
+* Top relevant context is retrieved from the knowledge base  
 
-This module performs semantic search over the knowledge base.
+This module performs semantic search over the academic corpus.
+
+### RAG-lite Generation
+
+* The retrieved context is combined with the user question  
+* A lightweight generation step produces a fluent and context-aware response  
+* This allows the chatbot to generate better natural-language answers instead of only returning a fixed stored response  
+
+This module extends the system from a purely retrieval-based chatbot into a lightweight retrieval-augmented generation architecture.
 
 ## Evaluation
 
 ### Classification Metrics
 
-* Accuracy
-* Precision
-* Recall
-* F1-score
-* Confusion Matrix
+* Accuracy  
+* Precision  
+* Recall  
+* F1-score  
+* Confusion Matrix  
 
 ### Retrieval Evaluation
 
-* Top-1 Accuracy
-* Qualitative analysis of chatbot responses
+* Top-k Retrieval Accuracy  
+* Relevance of retrieved context  
+* Qualitative inspection of retrieved matches  
+
+### Generation Evaluation
+
+* Qualitative analysis of answer fluency and coherence  
+* Comparison between retrieved raw answer and generated final answer  
+* Case-based evaluation on representative user queries
   
 ## Running the Project
 
@@ -227,19 +255,24 @@ streamlit run src/app.py
 
 ## Key Contributions
 
-* Hybrid NLP system combining **intent classification** and **retrieval**
-* Use of a real-world dataset (**CLINC150**) for intent modeling
-* Integration of **transformer-based embeddings**
-* Domain-adapted academic chatbot design
-* Modular and extensible architecture
+* Hybrid NLP system combining **intent classification, retrieval, and generation**  
+* Use of a real-world dataset (**CLINC150**) for intent modeling  
+* Integration of **transformer-based embeddings**  
+* Extension of retrieval-based QA into a **RAG-lite architecture**  
+* Domain-adapted academic chatbot design  
+* Modular and extensible architecture  
 
-## Limitation
+## Limitations
 
-* Performance depends on knowledge base coverage
+* Performance depends on knowledge base coverage  
+* Generated responses are only as strong as the retrieved context  
+* The system is not a full-scale end-to-end RAG pipeline with vector database infrastructure  
 
 ## Future Work
 
-* Implement Retrieval-Augmented Generation (RAG)
-* Replace classifier with fine-tuned BERT
+* Implement full Retrieval-Augmented Generation (RAG) with vector database support  
+* Replace the baseline classifier with fine-tuned BERT  
+* Add confidence-based reranking for retrieved contexts  
+* Expand the academic knowledge base  
 
 
