@@ -39,9 +39,8 @@ def generate_answer(query: str, retrieved_docs: List[Dict]) -> str:
     """
     Lightweight RAG-style answer generation.
     """
-    def generate_answer(query: str, retrieved_docs: List[Dict]) -> str:
+    if not retrieved_docs:
+        return "I could not find relevant information."
 
-     # en iyi doc
     best = retrieved_docs[0]
-
     return f"{best['answer_hint']} (Based on course knowledge.)"
