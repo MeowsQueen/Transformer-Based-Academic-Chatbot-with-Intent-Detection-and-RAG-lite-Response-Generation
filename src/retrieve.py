@@ -79,7 +79,6 @@ class Retriever:
         self.kb["topic"] = self.kb["topic"].fillna("").astype(str)
         self.kb["subtopic"] = self.kb["subtopic"].fillna("").astype(str)
 
-        # Daha güçlü retrieval alanı
         self.kb["retrieval_text"] = (
             self.kb["question_variation"] + " " +
             self.kb["context"] + " " +
@@ -100,7 +99,6 @@ class Retriever:
         allowed_topics = INTENT_TOPIC_MAP[predicted_intent]
         filtered = self.kb[self.kb["topic"].isin(allowed_topics)].copy()
 
-        # güvenlik: filtre boş dönerse tüm KB'ye dön
         if filtered.empty:
             return self.kb
 
