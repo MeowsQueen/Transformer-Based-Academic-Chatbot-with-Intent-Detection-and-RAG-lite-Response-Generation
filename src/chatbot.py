@@ -111,7 +111,7 @@ class Chatbot:
         docs = self.retriever.retrieve(query, top_k=3, predicted_intent=intent)
 
         # 5. Low-confidence retrieval guard
-        if not docs or docs[0]["score"] < 0.30:
+        if not docs or docs[0]["score"] < 0.45:
             return {
                 "intent": intent,
                 "response": "I am not confident that this question is covered by the academic knowledge base.",
