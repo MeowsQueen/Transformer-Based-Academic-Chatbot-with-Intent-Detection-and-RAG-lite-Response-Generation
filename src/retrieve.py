@@ -7,6 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/16v3orURFwTYao6KUFzhkDNrci0ADlF36
 """
 
+from pathlib import Path
 import pandas as pd
 import numpy as np
 
@@ -16,7 +17,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 from src.preprocess import clean_text
 
 
-KB_PATH = "data/processed/knowledge_base.csv"
+BASE_DIR = Path(__file__).resolve().parent.parent
+KB_PATH = BASE_DIR / "data" / "processed" / "knowledge_base.csv"
 MODEL_NAME = "all-MiniLM-L6-v2"
 
 
