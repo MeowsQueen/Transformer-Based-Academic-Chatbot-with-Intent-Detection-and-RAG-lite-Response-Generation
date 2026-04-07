@@ -12,7 +12,7 @@ import joblib
 
 from src.preprocess import clean_text
 from src.retrieve import Retriever
-from src.generate import generate_answer
+from src.generate import Generator
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,20 +20,14 @@ MODEL_PATH = BASE_DIR / "models" / "intent_classifier.pkl"
 
 
 def rule_based_override(query: str):
-    """
-    Lightweight rule layer to better capture academic/course-related queries
-    that may not be well represented in the CLINC subset.
-    """
     q = query.lower()
 
     if any(word in q for word in ["joke", "funny", "song", "music", "weather", "traffic", "uber"]):
         return "oos"
 
-    # identity / instructor
     if any(word in q for word in ["instructor", "teacher", "lecturer", "coordinator", "who teaches"]):
         return "agent_identity"
 
-    # grading / exam / project / policy
     if any(word in q for word in [
         "grade", "graded", "grading",
         "exam", "final", "midterm",
@@ -42,13 +36,11 @@ def rule_based_override(query: str):
     ]):
         return "schedule_query"
 
-    # course / syllabus / content
     if any(word in q for word in [
         "course", "syllabus", "content", "topics", "covered", "curriculum"
     ]):
         return "schedule_query"
 
-    # concept questions
     if any(word in q for word in [
         "what is", "explain", "difference between", "bert", "transformer",
         "embedding", "attention", "rag", "fine tuning", "vector database", "llm"
@@ -59,10 +51,6 @@ def rule_based_override(query: str):
 
 
 def looks_academic(query: str) -> bool:
-    """
-    If classifier predicts OOS but the query still looks academic,
-    allow retrieval as a fallback.
-    """
     q = query.lower()
 
     academic_keywords = [
@@ -83,12 +71,14 @@ class Chatbot:
         print("Loading retriever...")
         self.retriever = Retriever()
 
+        print("Loading generator...")
+        self.generator = Generator()
+
     def predict_intent(self, query: str):
         query_clean = clean_text(query)
         return self.clf.predict([query_clean])[0]
 
     def respond(self, query: str):
-        # 1. Rule-based override first
         override_intent = rule_based_override(query)
 
         if override_intent is not None:
@@ -96,21 +86,17 @@ class Chatbot:
         else:
             intent = self.predict_intent(query)
 
-        # 2. If still OOS, check if the question looks academic
         if intent == "oos" and not looks_academic(query):
             return {
                 "intent": intent,
                 "response": "Sorry, I cannot answer that question."
             }
 
-        # 3. If OOS but still academic-looking, force concept/course retrieval
         if intent == "oos" and looks_academic(query):
             intent = "concept_query"
 
-        # 4. Retrieval
         docs = self.retriever.retrieve(query, top_k=3, predicted_intent=intent)
 
-        # 5. Low-confidence retrieval guard
         if not docs or docs[0]["score"] < 0.45:
             return {
                 "intent": intent,
@@ -118,8 +104,7 @@ class Chatbot:
                 "retrieved_docs": docs
             }
 
-        # 6. Generation
-        answer = generate_answer(query, docs)
+        answer = self.generator.generate_answer(query, docs)
 
         return {
             "intent": intent,
