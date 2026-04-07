@@ -40,7 +40,15 @@ class Chatbot:
                 "response": "Sorry, I cannot answer that question."
             }
 
-        docs = self.retriever.retrieve(query, top_k=3)
+        docs = self.retriever.retrieve(query, top_k=3, predicted_intent=intent)
+
+        if not docs or docs[0]["score"] < 0.30:
+            return {
+                "intent": intent,
+                "response": "I am not confident that this question is covered by the academic knowledge base.",
+                "retrieved_docs": docs
+            }
+
         answer = generate_answer(query, docs)
 
         return {
