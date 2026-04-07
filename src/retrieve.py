@@ -8,9 +8,10 @@ Original file is located at
 """
 
 from pathlib import Path
-import pandas as pd
-import numpy as np
+from typing import List, Optional
 
+import numpy as np
+import pandas as pd
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -22,28 +23,109 @@ KB_PATH = BASE_DIR / "data" / "processed" / "knowledge_base.csv"
 MODEL_NAME = "all-MiniLM-L6-v2"
 
 
+INTENT_TOPIC_MAP = {
+    "concept_query": [
+        "nlp_basics",
+        "transformers",
+        "bert",
+        "embeddings",
+        "attention",
+        "rag",
+        "fine_tuning",
+        "vector_database",
+        "course_content",
+    ],
+    "schedule_query": [
+        "schedule",
+        "exam",
+        "grading",
+        "project",
+        "course_content",
+    ],
+    "scheduling_action": [
+        "schedule",
+        "project",
+        "exam",
+        "course_content",
+    ],
+    "agent_identity": [
+        "instructor",
+        "course_content",
+    ],
+    "task_management": [
+        "project",
+        "exam",
+        "course_content",
+        "schedule",
+    ],
+    "language_assistance": [
+        "nlp_basics",
+        "course_content",
+    ],
+}
+
+
 class Retriever:
     def __init__(self, kb_path=KB_PATH, model_name=MODEL_NAME):
         self.kb = pd.read_csv(kb_path).copy()
-        self.kb["context"] = self.kb["context"].apply(clean_text)
+
+        for col in ["question_variation", "context", "answer_hint", "topic", "subtopic"]:
+            if col not in self.kb.columns:
+                self.kb[col] = ""
+
+        self.kb["question_variation"] = self.kb["question_variation"].fillna("").astype(str)
+        self.kb["context"] = self.kb["context"].fillna("").astype(str)
+        self.kb["answer_hint"] = self.kb["answer_hint"].fillna("").astype(str)
+        self.kb["topic"] = self.kb["topic"].fillna("").astype(str)
+        self.kb["subtopic"] = self.kb["subtopic"].fillna("").astype(str)
+
+        # Daha güçlü retrieval alanı
+        self.kb["retrieval_text"] = (
+            self.kb["question_variation"] + " " +
+            self.kb["context"] + " " +
+            self.kb["answer_hint"]
+        ).apply(clean_text)
 
         self.model = SentenceTransformer(model_name)
-        self.context_embeddings = self.model.encode(
-            self.kb["context"].tolist(),
+
+        self.embeddings = self.model.encode(
+            self.kb["retrieval_text"].tolist(),
             show_progress_bar=False
         )
 
-    def retrieve(self, query: str, top_k: int = 3):
+    def _filter_by_intent(self, predicted_intent: Optional[str]) -> pd.DataFrame:
+        if not predicted_intent or predicted_intent not in INTENT_TOPIC_MAP:
+            return self.kb
+
+        allowed_topics = INTENT_TOPIC_MAP[predicted_intent]
+        filtered = self.kb[self.kb["topic"].isin(allowed_topics)].copy()
+
+        # güvenlik: filtre boş dönerse tüm KB'ye dön
+        if filtered.empty:
+            return self.kb
+
+        return filtered
+
+    def retrieve(self, query: str, top_k: int = 3, predicted_intent: Optional[str] = None) -> List[dict]:
         query = clean_text(query)
+
+        filtered_kb = self._filter_by_intent(predicted_intent)
+        filtered_indices = filtered_kb.index.tolist()
+
+        filtered_embeddings = self.embeddings[filtered_indices]
+
         query_emb = self.model.encode([query])
-        scores = cosine_similarity(query_emb, self.context_embeddings)[0]
-        top_idx = np.argsort(scores)[::-1][:top_k]
+        scores = cosine_similarity(query_emb, filtered_embeddings)[0]
+
+        top_local_idx = np.argsort(scores)[::-1][:top_k]
 
         results = []
-        for idx in top_idx:
-            row = self.kb.iloc[idx]
+        for local_idx in top_local_idx:
+            global_idx = filtered_indices[local_idx]
+            row = self.kb.iloc[global_idx]
+
             results.append({
-                "score": float(scores[idx]),
+                "score": float(scores[local_idx]),
                 "doc_id": row.get("doc_id", ""),
                 "topic": row.get("topic", ""),
                 "subtopic": row.get("subtopic", ""),
