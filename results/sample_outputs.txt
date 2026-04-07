@@ -1,0 +1,51 @@
+Query: What is a transformer?
+Intent: concept_query
+Response: A transformer is an attention-based sequence model widely used in modern NLP. (Based on course knowledge.)
+ - transformers 0.673
+ - transformers 0.5093
+ - course_content 0.4922
+
+====================
+Query: Who is the instructor?
+Intent: agent_identity
+Response: The course coordinator is Dr. Öğr. Üyesi Alper Öner. (Based on course knowledge.)
+ - instructor 0.66
+ - instructor 0.6247
+ - instructor 0.5949
+
+====================
+Query: How is the course graded?
+Intent: schedule_query
+Response: The course grade is based on assignment, project, and final exam, with the final exam carrying the highest weight. (Based on course knowledge.)
+ - grading 0.7723
+ - exam 0.62
+ - grading 0.5885
+
+====================
+Query: What topics are covered in the course?
+Intent: schedule_query
+Response: Yes, the course includes application-oriented topics and a practical project. (Based on course knowledge.)
+ - course_content 0.7202
+ - course_content 0.6484
+ - course_content 0.613
+
+====================
+Query: Is there a project in this course?
+Intent: schedule_query
+Response: Yes, the course has a project component. (Based on course knowledge.)
+ - project 0.6852
+ - project 0.6311
+ - course_content 0.6246
+
+====================
+Query: What is the dropout rate of this course?
+Intent: schedule_query
+Response: I am not confident that this question is covered by the academic knowledge base.
+ - project 0.3909
+ - schedule 0.3689
+ - schedule 0.3646
+
+====================
+Query: Tell me a joke
+Intent: oos
+Response: Sorry, I cannot answer that question.
