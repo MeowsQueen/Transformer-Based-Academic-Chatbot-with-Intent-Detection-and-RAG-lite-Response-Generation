@@ -7,6 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/14qxzbv2EfCYj78ilV-5xVYkvWb1_I2nM
 """
 
+from pathlib import Path
 import joblib
 
 from src.preprocess import clean_text
@@ -14,16 +15,15 @@ from src.retrieve import Retriever
 from src.generate import generate_answer
 
 
-MODEL_PATH = "models/intent_classifier.pkl"
+BASE_DIR = Path(__file__).resolve().parent.parent
+MODEL_PATH = BASE_DIR / "models" / "intent_classifier.pkl"
 
 
 class Chatbot:
     def __init__(self):
-        # classifier yükle
         print("Loading intent classifier...")
         self.clf = joblib.load(MODEL_PATH)
 
-        # retriever başlat
         print("Loading retriever...")
         self.retriever = Retriever()
 
@@ -32,20 +32,15 @@ class Chatbot:
         return self.clf.predict([query_clean])[0]
 
     def respond(self, query: str):
-        # 1. intent bul
         intent = self.predict_intent(query)
 
-        # 2. OOS kontrolü
         if intent == "oos":
             return {
                 "intent": intent,
                 "response": "Sorry, I cannot answer that question."
             }
 
-        # 3. retrieval
         docs = self.retriever.retrieve(query, top_k=3)
-
-        # 4. generation
         answer = generate_answer(query, docs)
 
         return {
