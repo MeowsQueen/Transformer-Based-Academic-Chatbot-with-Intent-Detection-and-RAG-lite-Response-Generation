@@ -162,6 +162,7 @@ class Chatbot:
 
     def respond(self, query: str):
         # 0. Normalize short fragment queries
+        query = correct_short_query(query, self.kb_terms)
         query = normalize_short_query(query)
 
         # 1. Rule-based override first
