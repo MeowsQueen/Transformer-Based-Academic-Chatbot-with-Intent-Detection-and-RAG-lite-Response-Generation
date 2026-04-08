@@ -131,7 +131,7 @@ class Chatbot:
             intent = "concept_query"
 
         # 4. Retrieval
-        docs = self.retriever.retrieve(query, top_k=3, predicted_intent=intent)
+        docs = self.retriever.retrieve(query, top_k=7, predicted_intent=intent)
 
         # 5. Low-confidence retrieval guard
         if not docs or docs[0]["score"] < 0.45:
