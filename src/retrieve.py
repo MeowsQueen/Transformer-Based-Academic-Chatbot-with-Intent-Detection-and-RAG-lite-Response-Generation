@@ -9,6 +9,8 @@ Original file is located at
 
 from pathlib import Path
 from typing import List, Optional
+import json
+import re
 
 import numpy as np
 import pandas as pd
@@ -21,13 +23,131 @@ from src.preprocess import clean_text
 BASE_DIR = Path(__file__).resolve().parent.parent
 KB_PATH = BASE_DIR / "data" / "processed" / "knowledge_base.csv"
 EMBEDDINGS_PATH = BASE_DIR / "models" / "kb_embeddings.npy"
+EMBEDDINGS_META_PATH = BASE_DIR / "models" / "kb_embeddings_meta.json"
+
 MODEL_NAME = "BAAI/bge-base-en-v1.5"
+
+
+def tokenize_text(text: str) -> List[str]:
+    return re.findall(r"[a-zA-Z0-9_]+", str(text).lower())
+
+
+def extract_query_entities(query: str) -> List[str]:
+    q = query.lower()
+
+    # whole phrase / entity list
+    entity_candidates = [
+        "project",
+        "assignment",
+        "exam",
+        "final exam",
+        "midterm",
+        "grading",
+        "instructor",
+        "coordinator",
+        "transformer",
+        "transformers",
+        "bert",
+        "ner",
+        "rag",
+        "vector database",
+        "vector databases",
+        "tokenization",
+        "tokenizer",
+        "token",
+        "tokens",
+        "embedding",
+        "embeddings",
+        "llm",
+        "llms",
+        "mllm",
+        "fine tuning",
+        "multimodal",
+    ]
+
+    found = []
+    for entity in entity_candidates:
+        if entity in q:
+            found.append(entity)
+
+    return found
+
+
+def build_row_text(row) -> str:
+    return " ".join([
+        str(row.get("topic", "")),
+        str(row.get("subtopic", "")),
+        str(row.get("question_variation", "")),
+        str(row.get("answer_hint", "")),
+        str(row.get("context", "")),
+    ]).lower()
+
+
+def lexical_bonus(query: str, row) -> float:
+    """
+    Add safe lexical guidance on top of semantic similarity.
+    Uses exact token overlap, exact phrase/entity match, and light penalties.
+    """
+    bonus = 0.0
+    q = query.lower()
+    row_text = build_row_text(row)
+
+    query_tokens = set(tokenize_text(q))
+    row_tokens = set(tokenize_text(row_text))
+
+    # exact token overlap (safe for llm vs mllm because tokenization is word-based)
+    overlap = query_tokens.intersection(row_tokens)
+    bonus += min(len(overlap) * 0.06, 0.24)
+
+    # exact entity matching
+    entities = extract_query_entities(q)
+    if entities:
+        matched_entities = 0
+        for entity in entities:
+            entity_tokens = tokenize_text(entity)
+
+            # exact whole-token entity match
+            if all(tok in row_tokens for tok in entity_tokens):
+                matched_entities += 1
+
+        if matched_entities > 0:
+            bonus += 0.25 * matched_entities
+        else:
+            bonus -= 0.18
+
+    # strong short-query bias
+    # helps llm prefer llm docs over mllm docs
+    if len(query_tokens) <= 2:
+        if query_tokens and query_tokens.issubset(row_tokens):
+            bonus += 0.20
+
+    # targeted schedule / course behavior
+    if "project" in q:
+        if "project" in row_text:
+            bonus += 0.20
+        else:
+            bonus -= 0.10
+
+    if "topics" in q and "course" in q:
+        if "overview" in str(row.get("subtopic", "")).lower():
+            bonus += 0.18
+        if "weekly_schedule" in str(row.get("topic", "")).lower():
+            bonus -= 0.06
+
+    if "when" in q or "which week" in q or "what week" in q:
+        subtopic = str(row.get("subtopic", "")).lower()
+        if any(x in subtopic for x in ["timing", "week", "schedule"]):
+            bonus += 0.20
+
+    return bonus
 
 
 class Retriever:
     def __init__(self, kb_path=KB_PATH, model_name=MODEL_NAME, embeddings_path=EMBEDDINGS_PATH):
         self.kb_path = Path(kb_path)
         self.embeddings_path = Path(embeddings_path)
+        self.embeddings_meta_path = EMBEDDINGS_META_PATH
+        self.model_name = model_name
 
         self.kb = pd.read_csv(self.kb_path).copy()
 
@@ -41,10 +161,11 @@ class Retriever:
         self.kb["topic"] = self.kb["topic"].fillna("").astype(str)
         self.kb["subtopic"] = self.kb["subtopic"].fillna("").astype(str)
 
+        # retrieval representation
         self.kb["retrieval_text"] = (
             self.kb["question_variation"] + " " +
             self.kb["question_variation"] + " " +
-            self.kb["question_variation"] + " " +
+            self.kb["question_variation"] + " " +   # question form boost
             self.kb["subtopic"] + " " +
             self.kb["answer_hint"] + " " +
             self.kb["context"]
@@ -53,35 +174,86 @@ class Retriever:
         self.model = SentenceTransformer(model_name)
         self.embeddings_path.parent.mkdir(parents=True, exist_ok=True)
 
-        if self.embeddings_path.exists():
-            self.embeddings = np.load(self.embeddings_path)
+        self.embeddings = self._load_or_build_embeddings()
 
-            if len(self.embeddings) != len(self.kb):
-                self.embeddings = self.model.encode(
-                    self.kb["retrieval_text"].tolist(),
-                    show_progress_bar=False
-                )
-                np.save(self.embeddings_path, self.embeddings)
+    def _load_embedding_meta(self):
+        if not self.embeddings_meta_path.exists():
+            return None
+        try:
+            with open(self.embeddings_meta_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return None
+
+    def _save_embedding_meta(self):
+        meta = {
+            "model_name": self.model_name,
+            "kb_rows": len(self.kb),
+        }
+        with open(self.embeddings_meta_path, "w", encoding="utf-8") as f:
+            json.dump(meta, f, ensure_ascii=False, indent=2)
+
+    def _build_embeddings(self):
+        embeddings = self.model.encode(
+            self.kb["retrieval_text"].tolist(),
+            show_progress_bar=False,
+            normalize_embeddings=True
+        )
+        np.save(self.embeddings_path, embeddings)
+        self._save_embedding_meta()
+        return embeddings
+
+    def _load_or_build_embeddings(self):
+        rebuild = False
+
+        if not self.embeddings_path.exists():
+            rebuild = True
         else:
-            self.embeddings = self.model.encode(
-                self.kb["retrieval_text"].tolist(),
-                show_progress_bar=False
-            )
-            np.save(self.embeddings_path, self.embeddings)
+            meta = self._load_embedding_meta()
+            if meta is None:
+                rebuild = True
+            else:
+                if meta.get("model_name") != self.model_name:
+                    rebuild = True
+                elif meta.get("kb_rows") != len(self.kb):
+                    rebuild = True
+
+        if rebuild:
+            return self._build_embeddings()
+
+        embeddings = np.load(self.embeddings_path)
+
+        if len(embeddings) != len(self.kb):
+            return self._build_embeddings()
+
+        return embeddings
 
     def retrieve(self, query: str, top_k: int = 3, predicted_intent: Optional[str] = None) -> List[dict]:
+        original_query = query
         query = clean_text(query)
 
-        query_emb = self.model.encode([query])
-        scores = cosine_similarity(query_emb, self.embeddings)[0]
+        # BGE query instruction helps retrieval quality
+        bge_query = f"Represent this sentence for searching relevant passages: {query}"
 
-        top_idx = np.argsort(scores)[::-1][:top_k]
+        query_emb = self.model.encode(
+            [bge_query],
+            normalize_embeddings=True
+        )
+        semantic_scores = cosine_similarity(query_emb, self.embeddings)[0]
+
+        final_scores = []
+        for idx, row in self.kb.iterrows():
+            bonus = lexical_bonus(original_query, row)
+            final_scores.append(float(semantic_scores[idx]) + bonus)
+
+        final_scores = np.array(final_scores)
+        top_idx = np.argsort(final_scores)[::-1][:top_k]
 
         results = []
         for idx in top_idx:
             row = self.kb.iloc[idx]
             results.append({
-                "score": float(scores[idx]),
+                "score": float(final_scores[idx]),
                 "doc_id": row.get("doc_id", ""),
                 "topic": row.get("topic", ""),
                 "subtopic": row.get("subtopic", ""),
