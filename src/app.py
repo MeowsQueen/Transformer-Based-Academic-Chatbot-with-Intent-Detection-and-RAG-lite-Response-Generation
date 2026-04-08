@@ -150,6 +150,7 @@ div[data-testid="stChatInput"] {
 """, unsafe_allow_html=True)
 
 # ---------- App state ----------
+@st.cache_resource
 def load_chatbot():
     return Chatbot()
 
