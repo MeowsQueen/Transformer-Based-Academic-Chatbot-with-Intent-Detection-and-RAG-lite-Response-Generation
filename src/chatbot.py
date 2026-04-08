@@ -13,7 +13,7 @@ import joblib
 
 from src.preprocess import clean_text
 from src.retrieve import Retriever
-from src.generate import generate_answer
+from src.generate import Generator
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -110,7 +110,7 @@ def rule_based_override(query: str):
         "tokenization", "tokenizer", "token", "tokens",
         "rag", "fine tuning", "vector database",
         "llm", "llms", "large language model", "large language models",
-        "nlp", "ner"
+        "nlp", "ner", "mllm"
     ]):
         return "concept_query"
 
@@ -144,7 +144,7 @@ def looks_academic(query: str) -> bool:
         "tokenization", "tokenizer", "token", "tokens",
         "rag", "fine tuning", "vector database",
         "llm", "llms", "large language model", "large language models",
-        "nlp", "ner"
+        "nlp", "ner", "mllm"
     ]
 
     return any(word in q for word in academic_keywords)
@@ -157,6 +157,9 @@ class Chatbot:
 
         print("Loading retriever...")
         self.retriever = Retriever()
+
+        print("Loading generator...")
+        self.generator = Generator()
 
     def predict_intent(self, query: str):
         query_clean = clean_text(query)
@@ -189,7 +192,7 @@ class Chatbot:
                 "response": "Sorry, I cannot answer that question."
             }
 
-        # 4. If OOS but still academic-looking, force concept/course retrieval
+        # 4. If OOS but still academic-looking, force concept retrieval
         if intent == "oos" and looks_academic(query):
             intent = "concept_query"
 
@@ -204,8 +207,8 @@ class Chatbot:
                 "retrieved_docs": docs
             }
 
-        # 7. Lightweight grounded generation
-        answer = generate_answer(query, docs)
+        # 7. Stronger grounded generation
+        answer = self.generator.generate_answer(query, docs)
 
         return {
             "intent": intent,
