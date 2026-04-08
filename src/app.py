@@ -151,10 +151,12 @@ div[data-testid="stChatInput"] {
 
 # ---------- App state ----------
 @st.cache_resource
-def load_chatbot():
+def load_chatbot(version: str):
     return Chatbot()
 
-bot = load_chatbot()
+BOT_VERSION = "v_final_3"
+bot = load_chatbot(BOT_VERSION)
+
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
