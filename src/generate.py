@@ -279,11 +279,30 @@ def generate_comparison_answer(docs: List[Dict]) -> str:
 
 
 def generate_why_answer(docs: List[Dict]) -> str:
-    hints = deduplicate_hints([str(doc.get("answer_hint", "")).strip() for doc in docs[:3]])
-    if len(hints) >= 2:
-        return f"{hints[0]} {hints[1]}"
-    if len(hints) == 1:
-        return hints[0]
+    """
+    Safer handling for 'why' questions:
+    - prefer a single focused explanation
+    - avoid concatenating unrelated hints
+    """
+    for doc in docs:
+        subtopic = str(doc.get("subtopic", "")).lower()
+        qv = str(doc.get("question_variation", "")).lower()
+        hint = str(doc.get("answer_hint", "")).strip()
+        context = str(doc.get("context", "")).lower()
+
+        text = " ".join([subtopic, qv, context])
+
+        if hint and any(x in text for x in [
+            "why", "important", "better", "used", "matters", "helps", "because", "advantage"
+        ]):
+            return hint
+
+    # fallback: first non-empty hint only
+    for doc in docs:
+        hint = str(doc.get("answer_hint", "")).strip()
+        if hint:
+            return hint
+
     return ""
 
 
