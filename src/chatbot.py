@@ -51,8 +51,24 @@ def rule_based_override(query: str):
 
     # concept questions
     if any(word in q for word in [
-        "what is", "explain", "difference between", "bert", "transformer",
-        "embedding", "attention", "rag", "fine tuning", "vector database", "llm", "nlp"
+        "what is", "explain", "difference between",
+        "bert", "transformer", "transformers",
+        "embedding", "embeddings",
+        "attention",
+        "tokenization", "tokenizer", "token", "tokens",
+        "rag", "fine tuning", "vector database",
+        "llm", "llms", "large language model", "large language models",
+        "nlp"
+    ]):
+        return "concept_query"
+
+    # "why" style concept questions
+    if any(word in q for word in [
+        "why is tokenization important",
+        "why are tokens important",
+        "why is bert used",
+        "why is rag used",
+        "why are embeddings important"
     ]):
         return "concept_query"
 
@@ -69,8 +85,14 @@ def looks_academic(query: str) -> bool:
     academic_keywords = [
         "course", "syllabus", "instructor", "teacher", "lecturer", "coordinator",
         "grade", "grading", "exam", "final", "midterm", "assignment", "project",
-        "attendance", "content", "topic", "bert", "transformer", "embedding",
-        "attention", "rag", "fine tuning", "vector database", "llm", "nlp"
+        "attendance", "content", "topic",
+        "bert", "transformer", "transformers",
+        "embedding", "embeddings",
+        "attention",
+        "tokenization", "tokenizer", "token", "tokens",
+        "rag", "fine tuning", "vector database",
+        "llm", "llms", "large language model", "large language models",
+        "nlp", "ner"
     ]
 
     return any(word in q for word in academic_keywords)
