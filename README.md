@@ -217,6 +217,14 @@ This module extends the system from a purely retrieval-based chatbot into a ligh
 * Qualitative analysis of answer fluency and coherence  
 * Comparison between retrieved raw answer and generated final answer  
 * Case-based evaluation on representative user queries
+
+## System Behavior
+
+The system includes safeguards to ensure reliable responses:
+
+* **Out-of-Scope Detection:** Queries unrelated to the academic domain are identified and rejected.
+* **Low-Confidence Retrieval Handling:** If the retrieved context has low similarity scores, the system avoids generating potentially incorrect answers and instead returns a safe fallback response.
+* **Grounded Responses:** All answers are strictly based on retrieved knowledge base content.
   
 ## Running the Project
 
@@ -278,4 +286,7 @@ streamlit run src/app.py
 * Add confidence-based reranking for retrieved contexts  
 * Expand the academic knowledge base  
 
+## Notes
 
+* The knowledge base embeddings (`kb_embeddings.npy`) are generated automatically at runtime and are not stored in the repository.
+* The system prioritizes correctness over fluency by grounding responses in retrieved evidence.
