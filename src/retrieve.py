@@ -42,10 +42,12 @@ class Retriever:
         self.kb["subtopic"] = self.kb["subtopic"].fillna("").astype(str)
 
         # richer retrieval representation
+
         self.kb["retrieval_text"] = (
-            self.kb["topic"] + " " +
-            self.kb["subtopic"] + " " +
             self.kb["question_variation"] + " " +
+            self.kb["question_variation"] + " " +
+            self.kb["question_variation"] + " " +   # ← BOOST
+            self.kb["subtopic"] + " " +
             self.kb["answer_hint"] + " " +
             self.kb["context"]
         ).apply(clean_text)
