@@ -191,31 +191,32 @@ def generate_existence_answer(docs: List[Dict], query: str) -> str:
                 return hint
         return str(docs[0].get("answer_hint", "")).strip()
 
-    # 1. Best case: explicit existence / course relation style question variation
+    # 1. strongest preference: explicit course_relation / existence style docs
     for doc in docs:
-        qv = str(doc.get("question_variation", "")).lower()
+        topic = str(doc.get("topic", "")).lower()
         subtopic = str(doc.get("subtopic", "")).lower()
+        qv = str(doc.get("question_variation", "")).lower()
+        hint = str(doc.get("answer_hint", "")).strip()
+
         text = " ".join([
-            str(doc.get("topic", "")),
-            subtopic,
-            qv,
+            topic, subtopic, qv,
             str(doc.get("answer_hint", "")),
-            str(doc.get("context", "")),
+            str(doc.get("context", ""))
         ]).lower()
 
         if matched_keyword in text:
+            if any(x in subtopic for x in ["course_relation", "existence", "components"]):
+                if hint:
+                    return hint
             if any(x in qv for x in [
-                "is there", "does the course have", "does the course include", "is there a"
+                "is there", "does the course have", "does this course include", "does the course include"
             ]):
-                return str(doc.get("answer_hint", "")).strip()
+                if hint:
+                    return hint
 
-            if any(x in subtopic for x in [
-                "course_relation", "existence", "project_presence", "llm_presence"
-            ]):
-                return str(doc.get("answer_hint", "")).strip()
-
-    # 2. Second best: entity-matching doc that explicitly says yes/has/includes
+    # 2. then prefer direct yes/include/has phrasing
     for doc in docs:
+        hint = str(doc.get("answer_hint", "")).strip()
         text = " ".join([
             str(doc.get("topic", "")),
             str(doc.get("subtopic", "")),
@@ -225,11 +226,13 @@ def generate_existence_answer(docs: List[Dict], query: str) -> str:
         ]).lower()
 
         if matched_keyword in text and any(x in text for x in ["yes", "includes", "has a", "has an"]):
-            return str(doc.get("answer_hint", "")).strip()
+            if hint:
+                return hint
 
-    # 3. Third best: entity-matching doc, but avoid generic learning outcomes/objectives
+    # 3. avoid outcomes/objectives as existence answers
     for doc in docs:
         subtopic = str(doc.get("subtopic", "")).lower()
+        hint = str(doc.get("answer_hint", "")).strip()
         text = " ".join([
             str(doc.get("topic", "")),
             subtopic,
@@ -238,10 +241,10 @@ def generate_existence_answer(docs: List[Dict], query: str) -> str:
             str(doc.get("context", "")),
         ]).lower()
 
-        if matched_keyword in text and not any(x in subtopic for x in ["learning_outcomes", "objectives", "overview"]):
-            return str(doc.get("answer_hint", "")).strip()
+        if matched_keyword in text and subtopic not in ["outcomes", "objectives", "learning_outcomes"]:
+            if hint:
+                return hint
 
-    # fallback
     return str(docs[0].get("answer_hint", "")).strip()
 
 
