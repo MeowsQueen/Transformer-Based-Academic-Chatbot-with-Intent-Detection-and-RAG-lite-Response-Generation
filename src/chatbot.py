@@ -8,12 +8,12 @@ Original file is located at
 """
 
 from pathlib import Path
-from difflib import get_close_matches
 import joblib
 
 from src.preprocess import clean_text
 from src.retrieve import Retriever
 from src.generate import generate_answer
+from difflib import get_close_matches
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -35,37 +35,9 @@ def normalize_short_query(query: str) -> str:
 
     word_count = len(q.split())
 
+    # if it is a short fragment and not already a question, normalize it
     if word_count <= 2 and "?" not in q:
         return f"What is {q}?"
-
-    return query
-
-
-def build_kb_terms(retriever):
-    terms = set()
-
-    for _, row in retriever.kb.iterrows():
-        qv = str(row.get("question_variation", "")).strip().lower()
-        topic = str(row.get("topic", "")).strip().lower()
-        subtopic = str(row.get("subtopic", "")).strip().lower()
-
-        if qv:
-            terms.add(qv)
-        if topic:
-            terms.add(topic)
-        if subtopic:
-            terms.add(subtopic)
-
-    return sorted(terms)
-
-
-def correct_short_query(query, kb_terms):
-    q = query.strip().lower()
-
-    if len(q.split()) <= 3 and "?" not in q:
-        matches = get_close_matches(q, kb_terms, n=1, cutoff=0.78)
-        if matches:
-            return matches[0]
 
     return query
 
@@ -148,7 +120,34 @@ def looks_academic(query: str) -> bool:
 
     return any(word in q for word in academic_keywords)
 
+def build_kb_terms(retriever) -> list[str]:
+    terms = set()
 
+    for _, row in retriever.kb.iterrows():
+        qv = str(row.get("question_variation", "")).strip().lower()
+        topic = str(row.get("topic", "")).strip().lower()
+        subtopic = str(row.get("subtopic", "")).strip().lower()
+
+        if qv:
+            terms.add(qv)
+        if topic:
+            terms.add(topic)
+        if subtopic:
+            terms.add(subtopic)
+
+    return sorted(terms)
+
+
+def correct_short_query(query: str, kb_terms: list[str]) -> str:
+    q = query.strip().lower()
+
+    if len(q.split()) <= 3 and "?" not in q:
+        matches = get_close_matches(q, kb_terms, n=1, cutoff=0.78)
+        if matches:
+            return matches[0]
+
+    return query
+    
 class Chatbot:
     def __init__(self):
         print("Loading intent classifier...")
@@ -162,18 +161,11 @@ class Chatbot:
         return self.clf.predict([query_clean])[0]
 
     def respond(self, query: str):
-        # 0. Lazy typo correction for short inputs
-        try:
-            if not hasattr(self, "kb_terms"):
-                self.kb_terms = build_kb_terms(self.retriever)
-            query = correct_short_query(query, self.kb_terms)
-        except Exception:
-            pass
-
-        # 1. Normalize short fragment queries
+        # 0. Normalize short fragment queries
+        query = correct_short_query(query, self.kb_terms)
         query = normalize_short_query(query)
 
-        # 2. Rule-based override first
+        # 1. Rule-based override first
         override_intent = rule_based_override(query)
 
         if override_intent is not None:
@@ -181,21 +173,21 @@ class Chatbot:
         else:
             intent = self.predict_intent(query)
 
-        # 3. If still OOS, check if the question looks academic
+        # 2. If still OOS, check if the question looks academic
         if intent == "oos" and not looks_academic(query):
             return {
                 "intent": intent,
                 "response": "Sorry, I cannot answer that question."
             }
 
-        # 4. If OOS but still academic-looking, force concept/course retrieval
+        # 3. If OOS but still academic-looking, force concept/course retrieval
         if intent == "oos" and looks_academic(query):
             intent = "concept_query"
 
-        # 5. Retrieval
+        # 4. Retrieval
         docs = self.retriever.retrieve(query, top_k=7, predicted_intent=intent)
 
-        # 6. Low-confidence retrieval guard
+        # 5. Low-confidence retrieval guard
         if not docs or docs[0]["score"] < 0.45:
             return {
                 "intent": intent,
@@ -203,7 +195,7 @@ class Chatbot:
                 "retrieved_docs": docs
             }
 
-        # 7. Query-aware grounded answer selection
+        # 6. Lightweight grounded generation
         answer = generate_answer(query, docs)
 
         return {
