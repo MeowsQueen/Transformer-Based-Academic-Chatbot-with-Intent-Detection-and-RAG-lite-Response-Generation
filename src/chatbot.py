@@ -13,6 +13,7 @@ import joblib
 from src.preprocess import clean_text
 from src.retrieve import Retriever
 from src.generate import generate_answer
+from difflib import get_close_matches
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -119,7 +120,34 @@ def looks_academic(query: str) -> bool:
 
     return any(word in q for word in academic_keywords)
 
+def build_kb_terms(retriever) -> list[str]:
+    terms = set()
 
+    for _, row in retriever.kb.iterrows():
+        qv = str(row.get("question_variation", "")).strip().lower()
+        topic = str(row.get("topic", "")).strip().lower()
+        subtopic = str(row.get("subtopic", "")).strip().lower()
+
+        if qv:
+            terms.add(qv)
+        if topic:
+            terms.add(topic)
+        if subtopic:
+            terms.add(subtopic)
+
+    return sorted(terms)
+
+
+def correct_short_query(query: str, kb_terms: list[str]) -> str:
+    q = query.strip().lower()
+
+    if len(q.split()) <= 3 and "?" not in q:
+        matches = get_close_matches(q, kb_terms, n=1, cutoff=0.78)
+        if matches:
+            return matches[0]
+
+    return query
+    
 class Chatbot:
     def __init__(self):
         print("Loading intent classifier...")
