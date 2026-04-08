@@ -8,209 +8,145 @@ Original file is located at
 """
 
 from typing import List, Dict
-import re
-
-import torch
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
 
-MODEL_NAME = "google/flan-t5-large"
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
+# Query type detection
 
 def detect_query_type(query: str) -> str:
-    q = query.lower().strip()
+    q = query.lower()
 
-    if "difference" in q or " vs " in q or "compare" in q:
+    if "difference" in q or "vs" in q or "compare" in q:
         return "comparison"
-    if q.startswith("why") or " why " in q:
+    if q.startswith("why") or "why" in q:
         return "why"
-    if q.startswith("when") or "which week" in q or "what week" in q:
+    if q.startswith("when") or "which week" in q or "covered" in q:
         return "when"
-    if q.startswith("who") or "instructor" in q or "coordinator" in q:
-        return "who"
-    if q.startswith("what") or q.startswith("define") or q.startswith("what are"):
+    if q.startswith("what") or "define" in q or "what are" in q:
         return "definition"
+
     return "general"
 
 
-def score_doc_for_query(doc: Dict, query: str, query_type: str) -> float:
-    base = float(doc.get("score", 0.0))
-    q = query.lower()
 
-    text = " ".join([
-        str(doc.get("topic", "")),
-        str(doc.get("subtopic", "")),
-        str(doc.get("question_variation", "")),
-        str(doc.get("answer_hint", "")),
-        str(doc.get("context", "")),
-    ]).lower()
+# Scoring function
 
-    bonus = 0.0
+def score_doc(doc: Dict, query_type: str) -> float:
+    text = (
+        doc.get("question_variation", "").lower()
+        + " "
+        + doc.get("context", "").lower()
+        + " "
+        + doc.get("answer_hint", "").lower()
+        + " "
+        + doc.get("subtopic", "").lower()
+        + " "
+        + doc.get("topic", "").lower()
+    )
 
+    score = doc["score"]
+
+    # Definition boost
     if query_type == "definition":
         if any(k in text for k in [
-            "what is", "what are", "definition", "refers to", "is the process",
-            "is a", "are the basic units", "unit of text", "called tokens"
+            "is a", "refers to", "defined as", "are units", "called tokens"
         ]):
-            bonus += 0.30
+            score += 0.2
 
+    # Why boost
     elif query_type == "why":
         if any(k in text for k in [
-            "important", "because", "used for", "helps", "affects", "matters", "reason"
+            "important", "because", "used for", "helps", "affects", "reason"
         ]):
-            bonus += 0.30
+            score += 0.2
 
+    # When boost (VERY strong)
     elif query_type == "when":
         if any(k in text for k in [
-            "week", "timing", "weekly_schedule", "covered in week", "taught in week"
+            "week", "covered in week", "taught in week", "schedule"
         ]):
-            bonus += 0.45
+            score += 0.4  # stronger boost
 
-    elif query_type == "who":
-        if any(k in text for k in [
-            "instructor", "coordinator", "lecturer", "teacher"
-        ]):
-            bonus += 0.35
-
+    # Comparison boost
     elif query_type == "comparison":
         if any(k in text for k in [
-            "difference", "vs", "while", "whereas", "compared"
+            "difference", "while", "whereas", "compared"
         ]):
-            bonus += 0.35
+            score += 0.25
 
-    # lexical overlap bonus
-    important_terms = [w for w in re.findall(r"[a-zA-Z0-9_]+", q) if len(w) > 2]
-    overlap = sum(1 for w in important_terms if w in text)
-    bonus += min(overlap * 0.03, 0.15)
-
-    return base + bonus
+    return score
 
 
-def deduplicate_docs(docs: List[Dict]) -> List[Dict]:
-    seen = set()
-    out = []
+# Reranking
 
-    for d in docs:
-        key = (
-            str(d.get("topic", "")).lower(),
-            str(d.get("subtopic", "")).lower(),
-            str(d.get("answer_hint", "")).lower(),
-        )
-        if key not in seen:
-            seen.add(key)
-            out.append(d)
+def rerank_docs(query: str, docs: List[Dict]) -> List[Dict]:
+    query_type = detect_query_type(query)
 
-    return out
+    scored = []
+    for doc in docs:
+        s = score_doc(doc, query_type)
+        scored.append((s, doc))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [doc for _, doc in scored]
 
 
-class Generator:
-    def __init__(self, model_name: str = MODEL_NAME):
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name).to(DEVICE)
-        self.model.eval()
 
-    def rerank_docs(self, query: str, docs: List[Dict]) -> List[Dict]:
-        query_type = detect_query_type(query)
+# Deduplication
 
-        rescored = []
-        for d in docs:
-            rescored.append((score_doc_for_query(d, query, query_type), d))
+def is_redundant(a: str, b: str) -> bool:
+    a = a.lower()
+    b = b.lower()
 
-        rescored.sort(key=lambda x: x[0], reverse=True)
-        reranked = [d for _, d in rescored]
-        return deduplicate_docs(reranked)
+    # simple overlap check
+    return a in b or b in a
 
-    def build_prompt(self, query: str, docs: List[Dict]) -> str:
-        query_type = detect_query_type(query)
 
-        context_blocks = []
-        for i, doc in enumerate(docs[:5], start=1):
-            context_blocks.append(
-                f"[Document {i}]\n"
-                f"Topic: {doc.get('topic', '')}\n"
-                f"Subtopic: {doc.get('subtopic', '')}\n"
-                f"Question variation: {doc.get('question_variation', '')}\n"
-                f"Answer hint: {doc.get('answer_hint', '')}\n"
-                f"Context: {doc.get('context', '')}\n"
-            )
+# Answer combination
 
-        task_hint = {
-            "definition": "Give a precise definition-focused answer.",
-            "why": "Explain why it matters or why it is used.",
-            "when": "Answer with the week or timing if available.",
-            "who": "Answer with the relevant person identity.",
-            "comparison": "State the difference clearly and directly.",
-            "general": "Answer clearly and concisely."
-        }.get(query_type, "Answer clearly and concisely.")
+def combine_answers(query_type: str, docs: List[Dict]) -> str:
+    primary = docs[0]["answer_hint"]
 
-        prompt = f"""
-You are an academic assistant.
+    if len(docs) < 2:
+        return primary
 
-Your task:
-- Use ONLY the information in the documents below.
-- Prefer the most relevant document(s) for the exact question type.
-- Do NOT invent facts.
-- If the answer is not supported by the documents, reply exactly:
-I am not confident that this question is covered by the academic knowledge base.
+    secondary = docs[1]["answer_hint"]
 
-Instruction:
-{task_hint}
+    # avoid duplication
+    if is_redundant(primary, secondary):
+        return primary
 
-Documents:
-{chr(10).join(context_blocks)}
+    # Definition → keep clean, no merge
+    if query_type == "definition":
+        return primary
 
-Question:
-{query}
+    # Why → enrich slightly
+    if query_type == "why":
+        return f"{primary} {secondary}"
 
-Answer:
-"""
-        return prompt.strip()
+    # Comparison → combine carefully
+    if query_type == "comparison":
+        return f"{primary} Additionally, {secondary}"
 
-    def postprocess(self, answer: str, docs: List[Dict], query: str) -> str:
-        answer = answer.strip()
+    # When → only use best (important!)
+    if query_type == "when":
+        return primary
 
-        if not answer:
-            return "I am not confident that this question is covered by the academic knowledge base."
+    return primary
 
-        # kill ultra-short bad outputs
-        if len(answer.split()) <= 2:
-            best = docs[0].get("answer_hint", "")
-            if best:
-                return f"{best} (Based on course knowledge.)"
 
-        # remove duplicate ending punctuation noise
-        answer = re.sub(r"\s+", " ", answer).strip()
+# Main generator
 
-        if "I am not confident" in answer:
-            return "I am not confident that this question is covered by the academic knowledge base."
+def generate_answer(query: str, retrieved_docs: List[Dict]) -> str:
+    if not retrieved_docs:
+        return "I could not find relevant information."
 
-        return f"{answer} (Based on course knowledge.)"
+    query_type = detect_query_type(query)
 
-    def generate_answer(self, query: str, retrieved_docs: List[Dict]) -> str:
-        if not retrieved_docs:
-            return "I am not confident that this question is covered by the academic knowledge base."
+    # rerank docs
+    docs = rerank_docs(query, retrieved_docs)
 
-        docs = self.rerank_docs(query, retrieved_docs)
-        prompt = self.build_prompt(query, docs)
+    # select / combine
+    answer = combine_answers(query_type, docs)
 
-        inputs = self.tokenizer(
-            prompt,
-            return_tensors="pt",
-            truncation=True,
-            max_length=1024
-        ).to(DEVICE)
-
-        with torch.no_grad():
-            outputs = self.model.generate(
-                **inputs,
-                max_new_tokens=96,
-                num_beams=5,
-                do_sample=False,
-                early_stopping=True,
-                length_penalty=1.0,
-                no_repeat_ngram_size=3
-            )
-
-        answer = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-        return self.postprocess(answer, docs, query)
+    return f"{answer} (Based on course knowledge.)"
