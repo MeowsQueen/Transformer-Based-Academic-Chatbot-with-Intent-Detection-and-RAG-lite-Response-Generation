@@ -21,7 +21,6 @@ from src.chatbot import Chatbot
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONF_MATRIX_PATH = BASE_DIR / "results" / "confusion_matrix.png"
-METRICS_PATH = BASE_DIR / "results" / "metrics.txt"
 
 
 st.set_page_config(
@@ -38,15 +37,6 @@ st.markdown("""
     max-width: 1580px;
     padding-top: 1.15rem;
     padding-bottom: 1.4rem;
-}
-
-.card {
-    background: rgba(30, 41, 59, 0.58);
-    border: 1px solid rgba(148, 163, 184, 0.16);
-    border-radius: 20px;
-    padding: 1rem 1rem 0.9rem 1rem;
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
-    backdrop-filter: blur(6px);
 }
 
 .hero {
@@ -132,12 +122,6 @@ hr.soft {
     border: none;
     border-top: 1px solid rgba(148, 163, 184, 0.14);
     margin: 0.8rem 0 1rem 0;
-}
-
-/* raw metrics box */
-div[data-testid="stCodeBlock"] pre {
-    font-size: 0.88rem !important;
-    line-height: 1.45 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -325,7 +309,6 @@ st.markdown("<div style='height:0.7rem;'></div>", unsafe_allow_html=True)
 left_col, right_col = st.columns([1.7, 1.05], gap="large")
 
 with left_col:
-    st.markdown('<div class="card chat-shell">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">Conversation</div>', unsafe_allow_html=True)
 
     if len(st.session_state.messages) <= 1:
@@ -368,12 +351,8 @@ with left_col:
         st.session_state.last_result = result
         st.rerun()
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
 with right_col:
-    # Why this answer
     st.markdown('<div class="section-title">Why this answer?</div>', unsafe_allow_html=True)
-    st.markdown('<div class="card">', unsafe_allow_html=True)
 
     if not result:
         st.markdown(
@@ -438,14 +417,9 @@ with right_col:
         else:
             st.success("The response is grounded in retrieved course knowledge and passed the confidence threshold.")
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
     st.markdown("<div style='height:0.8rem;'></div>", unsafe_allow_html=True)
 
-    # Evaluation panel
-    st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">Evaluation snapshot</div>', unsafe_allow_html=True)
-
     st.dataframe(load_metrics_table(), use_container_width=True, hide_index=True)
 
     if CONF_MATRIX_PATH.exists():
@@ -453,5 +427,3 @@ with right_col:
         st.image(str(CONF_MATRIX_PATH), width=540)
     else:
         st.info("Confusion matrix image not found in results/.")
-
-    st.markdown("</div>", unsafe_allow_html=True)
