@@ -1,0 +1,71 @@
+# -------------------------
+# Python cache
+# -------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# -------------------------
+# Virtual environments
+# -------------------------
+venv/
+.env/
+.env.*
+.venv/
+
+# -------------------------
+# Jupyter Notebook
+# -------------------------
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# -------------------------
+# Streamlit cache
+# -------------------------
+.streamlit/
+
+# -------------------------
+# OS files
+# -------------------------
+.DS_Store
+Thumbs.db
+
+# -------------------------
+# Logs
+# -------------------------
+*.log
+
+# -------------------------
+# Model & embeddings (optional)
+# -------------------------
+models/kb_embeddings.npy
+
+# Eğer modeli GitHub'a koymak istemezsen bunu da aç:
+# models/intent_classifier.pkl
+
+# -------------------------
+# Large files (optional)
+# -------------------------
+*.pt
+*.bin
+*.ckpt
+
+# -------------------------
+# Data (optional)
+# -------------------------
+# Eğer dataset büyükse aç:
+# data/raw/
+# data/processed/
+
+# -------------------------
+# VSCode / IDE
+# -------------------------
+.vscode/
+.idea/
+
+# -------------------------
+# Temporary files
+# -------------------------
+*.tmp
+*.swp
