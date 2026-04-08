@@ -75,9 +75,14 @@ def build_kb_terms(retriever):
 def correct_short_query(query, kb_terms):
     q = query.strip().lower()
 
+    # Never fuzzy-correct very short acronym-like inputs
+    # Examples: llm, mllm, rag, bert
+    if len(q) <= 4:
+        return query
+
     # only attempt fuzzy correction for short fragment-like inputs
     if len(q.split()) <= 3 and not looks_like_question(q):
-        matches = get_close_matches(q, kb_terms, n=1, cutoff=0.78)
+        matches = get_close_matches(q, kb_terms, n=1, cutoff=0.82)
         if matches:
             return matches[0]
 
