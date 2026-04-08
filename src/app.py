@@ -17,6 +17,8 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from src.chatbot import Chatbot
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONF_MATRIX_PATH = BASE_DIR / "results" / "confusion_matrix.png"
 METRICS_PATH = BASE_DIR / "results" / "metrics.txt"
@@ -112,7 +114,7 @@ st.markdown("""
 }
 
 .chat-shell {
-    min-height: 560px;
+    min-height: auto;
 }
 
 .empty-panel {
@@ -367,11 +369,11 @@ with left_col:
         st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
-    
+
 with right_col:
     # Why this answer
-    st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown('<div class="section-title">Why this answer?</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card">', unsafe_allow_html=True)
 
     if not result:
         st.markdown(
@@ -448,13 +450,8 @@ with right_col:
 
     if CONF_MATRIX_PATH.exists():
         st.markdown('<div class="soft-label" style="margin-top:0.8rem;">Confusion matrix</div>', unsafe_allow_html=True)
-        st.image(str(CONF_MATRIX_PATH), use_container_width=True)
+        st.image(str(CONF_MATRIX_PATH), width=540)
     else:
         st.info("Confusion matrix image not found in results/.")
-
-    if METRICS_PATH.exists():
-        with st.expander("Open raw metrics.txt"):
-            with open(METRICS_PATH, "r", encoding="utf-8") as f:
-                st.code(f.read(), language="text")
 
     st.markdown("</div>", unsafe_allow_html=True)
