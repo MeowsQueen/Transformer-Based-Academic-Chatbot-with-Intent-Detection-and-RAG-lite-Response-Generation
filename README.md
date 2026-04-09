@@ -136,7 +136,9 @@ This dataset enables the system to handle **diverse natural language queries** a
 
 ### 2. Knowledge Base (Retrieval Dataset)
 
-* Custom-built dataset (~100 Q&A pairs)  
+* Custom-built dataset (~200+ Q&A pairs)
+* Expanded using academic resources and course materials
+* Includes both course-specific knowledge and transformer-based NLP concepts
 * Designed specifically for this project  
 
 #### Covered Domains
