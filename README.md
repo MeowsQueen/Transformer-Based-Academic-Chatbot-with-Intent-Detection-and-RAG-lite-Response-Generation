@@ -21,6 +21,26 @@ This project was developed as part of the **Introduction to Large Language Model
 
 ---
 
+## System Highlights
+
+* Hybrid pipeline combining intent detection, retrieval, and generation
+* Lightweight RAG-style architecture without full LLM dependency
+* Query-type aware response generation (definition, comparison, why, etc.)
+* Efficient and interpretable design suitable for academic applications
+
+---
+
+### Key Enhancements
+
+Compared to a basic retrieval-based chatbot, this system includes:
+
+* Query-aware reranking that aligns retrieved results with user intent
+* Hybrid scoring combining semantic similarity and keyword grounding
+* Structured knowledge base design with topic and subtopic hierarchy
+* Improved handling of definition, comparison, and "why" questions
+* Enhanced robustness for short queries (e.g., "llm", "rag")
+
+---
 ## Project Structure
 
 The system consists of three main components:
