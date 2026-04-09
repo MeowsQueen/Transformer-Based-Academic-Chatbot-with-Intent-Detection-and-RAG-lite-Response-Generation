@@ -39,6 +39,16 @@ Compared to a basic retrieval-based chatbot, this system includes:
 * Structured knowledge base design with topic and subtopic hierarchy
 * Improved handling of definition, comparison, and "why" questions
 * Enhanced robustness for short queries (e.g., "llm", "rag")
+  
+---  
+
+## Demo
+
+### Chatbot Interface Overview
+![Chatbot Interface Overview](assets/chatbot_interface_overview.png)
+
+### Evaluation & Retrieval Panel
+![Evaluation Panel](assets/chatbot_interface_evaluation_panel.png)
 
 ---
 ## Project Structure
